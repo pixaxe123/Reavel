@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>REAVEL</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      transition: background 0.3s, color 0.3s;
+    }
+    .dark-mode {
+      background: #121212;
+      color: #f0f0f0;
+    }
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      position: relative; /* 자식 요소의 absolute 위치 기준 */
+      z-index: 1000; /* 설정 패널보다 위에 있도록 */
+    }
+    /* REAVEL 타이틀 및 버튼 그룹을 위한 새로운 flexbox 컨테이너 */
+    .header-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%; /* 너비를 꽉 채우도록 설정 */
+    }
+    .header-buttons {
+      display: flex;
+      gap: 1rem; /* 버튼 사이 간격 */
+      margin-top: 0.5rem; /* 타이틀과 버튼 사이 간격 */
+    }
+    .reader-header {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 1rem; /* 제목과 버튼 사이 간격 */
+    }
+    .reader-header h2 {
+        margin: 0.5rem 0;
+    }
+    .reader-buttons {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .button {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .blog-list, .recommend-list, #searchResults {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .blog-card {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .blog-card:hover {
+      transform: scale(1.03);
+    }
+    .episode-text {
+      padding: 1rem;
+      background: white;
+      border-radius: 10px;
+      white-space: pre-wrap;
+    }
+    .arrow {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 2rem;
+      background: white;
+      border-radius: 50%;
+      padding: 0.5rem 0.8rem;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      cursor: pointer;
+    }
+    .left-arrow { left: 10px; }
+    .right-arrow { right: 10px; }
+
+    .settings-panel {
+  display: none;
+  position: absolute;
+  background: white;
+  padding: 1rem;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  z-index: 1001;
+}
+
+ 
+    #readerSettings {
+        left: auto;
+        right: 1rem;
+    }
+
+    .episode-buttons button {
+      margin: 0.2rem;
+      padding: 0.3rem 0.7rem;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background: white;
+      cursor: pointer;
+    }
+
+    .episode-buttons .current { background: #007bff; color: white; }
+    .episode-buttons .viewed { background: #ccc; color: #333; }
+    .episode-buttons .unviewed { background: white; color: black; }
+
+    .dark-mode .blog-card, .dark-mode .episode-text, .dark-mode .settings-panel {
+      background: #1e1e1e;
+      color: white;
+    }
+    .history-bottom-bar {
+        display: flex;
+        justify-content: flex-end; /* 오른쪽 정렬 */
+        padding: 1rem;
+        background: inherit; /* 부모 배경색 상속 */
+    }
+  </style>
+</head>
+<body>
+
+<div id="homeView">
+  <div class="top-bar">
+    <div class="header-group">
+      <h2>REAVEL</h2>
+      <div class="header-buttons">
+        <button class="button" onclick="toggleSettings('home')">설정</button>
+        <button class="button" onclick="openHistory()">히스토리</button>
+        <button class="button" onclick="openSearch()">검색</button>
+      </div>
+    </div>
+  </div>
+  <div id="homeSettings" class="settings-panel">
+    <label><input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()"> 다크모드</label>
+  </div>
+
+  <h3 style="text-align:center;">이건 어떠세요?</h3>
+  <div class="recommend-list" id="recommendList"></div>
+
+  <h3 style="text-align:center;">모두 다 모았어요!</h3>
+  <div class="blog-list" id="blogList"></div>
+</div>
+
+<div id="searchView" style="display:none;">
+  <div class="top-bar">
+    <button class="button" onclick="goHome()">← 홈</button>
+    <input id="searchInput" placeholder="검색..." oninput="performSearch()" style="flex:1; margin-left:1rem; padding:0.5rem; font-size:1rem;">
+  </div>
+  <div class="blog-list" id="searchResults"></div>
+</div>
+
+<div id="readerView" style="display:none;">
+  <div class="top-bar">
+    <div class="reader-header">
+      <h2 id="readerTitle">블로그 제목</h2>
+      <div class="reader-buttons">
+        <button class="button" onclick="toggleSettings('reader')">설정</button>
+        <button class="button" onclick="toggleEpisodeList()"> 회차 선택</button>
+        <button class="button" onclick="goHome()">← 홈</button>
+      </div>
+    </div>
+  </div>
+  <div id="readerSettings" class="settings-panel">
+    <label>폰트 크기</label>
+    <input type="range" min="12" max="36" value="16" id="fontSlider" oninput="setFontSize(this.value)">
+    <input type="number" min="12" max="36" value="16" id="fontInput" oninput="setFontSize(this.value)">
+  </div>
+  <div id="episodeList" class="episode-buttons" style="padding:1rem; display:none;"></div>
+  <div class="arrow left-arrow" id="prevEpisodeArrow" onclick="prevEpisode()">←</div>
+  <div class="arrow right-arrow" id="nextEpisodeArrow" onclick="nextEpisode()">→</div>
+  <div id="episodeContent" class="episode-text" style="font-size:16px;"></div>
+</div>
+
+<div id="historyView" style="display:none;">
+  <div class="top-bar">
+    <button class="button" onclick="goHome()">← 홈</button>
+    <h2>히스토리</h2>
+    <div></div>
+  </div>
+  <div class="blog-list" id="historyList"></div>
+  <div class="history-bottom-bar">
+      <button class="button" onclick="clearHistory()">히스토리 초기화</button>
+  </div>
+</div>
+
+ 
+ 
+ 
+
+
+<script>
+  const blogTitles = ["기사인데 거지입니다만?", "82세 김춘배 마탑주가 되다", "사람이 되고파"];
+  const blogs = [
+    [
+      `나는 태생부터 운이 없었다.
+
+엄마와 아빠가 각각 한 분 밖에 없는 불우한 가정에서 태어났기 때문이였다.
+
+하지만 나는 기사가 될 것이라는 숭고한 꿈이 있었다!
+
+나의 삶을 망친 신이라는 작자에게 대적할 숭고한 기사의 정신을 말이다!
+
+나는 나의 10번째 생일 이후부터 계속 검술을 연마하여 마침내
+상급 기사로 승격하였다.
+
+
+나의 이름은 김철수.
+
+
+나 김철수는 이제 기사도의 이름으로 무능한 신을 척결하러 대장정을 떠난다!
+
+...
+
+라고 말은 했지만... 솔직히 계획도 없고.. 쫄린다.
+
+하지만 걱정하지 마라! 숙련된 기사의 무기, 게틀링 건을 지인이 구해다 준다고 했으니 말이다!
+
+그것만 있다면.. 나도 세계 최고가 될 수 있다!!
+
+그러나 어떤 연유에서 인지, 그 지인은 몇 달째 답이 없다... 불안이 엄습한다..
+
+지인의 집에 찾아가 보자!
+
+지인의 집 문을 부수고 침투하였으나, 지인은 이미 사라진지 오래이고.. 
+
+하나의 봉투 뿐이었다.
+
+떨리는 손. 흐르는 땀. 봉투를 열어본다. `,
+      `지인만 믿었다. 
+
+믿었었다.
+
+이젠 화만 남았다,
+
+아니 화도 없다.
+
+지인이 내 돈을 가지고 튈 때 같이 가져갔나 보다.
+
+…
+
+이제 목표가 바뀐 것 같다.
+
+내 돈을 가지고 튄 그 개자식을 잡아 족칠 것이다.
+
+신? 신은 없다.
+
+하지만 그 자식은 있지…
+
+칼을 간다.
+
+날카롭다.
+
+나 김철수 절 때 굴하지 않는다.
+
+그자식의 위치는 분명하다!
+
+어떻게 확신하냐고?
+
+
+훗…
+
+
+나는 그자에게 물건으로 값을 치루었다.
+
+그정도 물건은 수도에서만 팔 수 있을 것이고…
+
+그렇다는건 그자는 수도에 있을 것이라는 것이다!
+
+후후후…
+
+흐흐흐.. 
+
+으하하하하!!!
+
+그날 주민들은 악마의 소리를 들었다.`
+    ],
+    [
+      `이 이야기는 평범하고 평범한 대한민국의 한 노인 김춘배씨에게서 시작된다.
+
+“에고고.. 허리야..”
+
+외출을 마치고 노양원으로 들어가는 중이었던 김춘배.
+
+동년배들중 가장 팔팔했던 그였고 오늘도 자신보다 10살정도 어려보이는 이들과 함께 파크골프를 즐기다가 노인정으로 가는중이었다.
+
+간만에 라운드가 잘 풀려서인지 발이 가볍다.
+
+온몸이 붕 붕 뜨는 것 같고
+
+발밑에 닿는 느낌이 없…? 다?
+
+쿵…!
+
+82세 김춘배의 마지막. 아니
+
+“대한민국에서의 마지막”
+
+이었다. `,
+      `“으으.. 머리야 에고고.. 살아는 있구먼…”
+
+..?
+
+“살아는 있나?”
+
+눈앞에는 웬 숲이 펼쳐져 있다.
+
+“뭐여…? ”
+
+뒤를 돌아보지만 뒤도 역시 숲.
+
+“어어..?”
+
+“여기는 어디여…?”
+
+저벅 저벅
+
+“여보슈!! 거기 누구 없소..?”
+
+풀숲이 조금 흔들리더니 눈앞에 웬 이상한.. 아니 손녀가 핸드폰으로 보던 웹..?툰? 에서 많이 보았던 복장의 남자가 나온다.
+
+“누구..? 여긴 어떻게…?”
+
+동방예의지국에서 82년동안 살아온 김춘배에게 젊은 남성의 반말은 상상도 하지 못할 것이었다.
+
+“야! 임마! 너는 누군데 어른한테 예의도 없이 말야! 어! 너 몇살이야?!”
+
+
+불의 마탑에서 30년 동안 연구에 매진하다 잠시 산책을 나온 수석 마법사 차르아에게 호통소리는 상상도 하지 못할 것이었다.
+
+“아…”
+
+춘배씨의 눈썹이 꿈틀거린다.
+
+“아? 아아? 지금 한숨쉰겨? 내 앞에서? 한숨? 하아아안 수움..?”
+
+“에잉 쯔쯔.. 요즘 것들은 이리 예의를 설렁탕에다가 면넣고 밥넣고 깍두기 국물 넣을때 같이 넣어서 좝수시는 건가?”
+
+차르아는 불의 마법을 다루기에 상대방의 마음을 보는 능력따위는 없다.
+
+하지만 보이는 것 같다.
+
+매우 큰 불이다. 
+
+자신은 한번도 겪어보지 못한, 겪기도 싫은…
+
+ㅈX 큰불!!!!!!!!
+
+두 눈이 흔들리고 또 흔들린다.
+
+땀이 얼굴을 타고 내려온다.
+
+마른침을 삼킨…
+
+잠깐만.. 자아암깐만…
+
+불…?
+
+아주큰…?
+
+겪어보지 못한…?
+
+잠깐만…
+
+응…?
+
+이거 하나는 확실하다.
+
+수석 마법사 차르아 앞에는 지상 최대 불의 마법사가 존재한다는 것이다. `
+    ],
+    [
+      `“왜 사람으로 태어난거지…”
+
+내 마지막 말이었다.
+
+사람이 아니었으면 거지같은 공부도 취업도 걱정도 없어도 될 것 이었으니까.
+
+… 이게 끝인가..?
+
+허무하다…
+
+다음생에는 사람이 아니었으면…
+
+파아앗!
+
+음..? 여긴.. 어디..? `
+    ]
+  ];
+
+  let currentBlog = 0;
+  let currentEpisode = 0;
+
+  let viewed = {};
+  let lastReadEpisode = {};
+
+  const views = {
+    home: document.getElementById("homeView"),
+    search: document.getElementById("searchView"),
+    reader: document.getElementById("readerView"),
+    history: document.getElementById("historyView")
+  };
+
+  const prevEpisodeArrow = document.getElementById("prevEpisodeArrow");
+  const nextEpisodeArrow = document.getElementById("nextEpisodeArrow");
+
+  function loadDataFromLocalStorage() {
+      const savedViewed = localStorage.getItem('viewed');
+      if (savedViewed) {
+          const parsedViewed = JSON.parse(savedViewed);
+          for (const key in parsedViewed) {
+              viewed[key] = new Set(parsedViewed[key]);
+          }
+      }
+
+      const savedLastRead = localStorage.getItem('lastReadEpisode');
+      if (savedLastRead) {
+          lastReadEpisode = JSON.parse(savedLastRead);
+      }
+  }
+
+  function saveViewedToLocalStorage() {
+      const plainViewed = {};
+      for (const key in viewed) {
+          plainViewed[key] = Array.from(viewed[key]);
+      }
+      localStorage.setItem('viewed', JSON.stringify(plainViewed));
+  }
+
+  function saveLastReadEpisodeToLocalStorage() {
+      localStorage.setItem('lastReadEpisode', JSON.stringify(lastReadEpisode));
+  }
+
+  function show(view) {
+    // 모든 뷰를 숨기기 전에, 현재 보이는 뷰가 homeView가 아니라면 숨겨줍니다.
+    // 이렇게 하면 초기 로딩 시 homeView가 깜빡이는 것을 방지할 수 있습니다.
+    Object.values(views).forEach(v => {
+        if (v.id !== view + 'View') { // 현재 보여줄 뷰가 아니라면
+            v.style.display = "none";
+        }
+    });
+    views[view].style.display = "block";
+
+    // 뷰 전환 시 항상 설정 패널과 회차 선택 패널 닫기
+    hideAllSettings();
+
+    if (view !== 'reader') { // 리더 뷰가 아닐 때는 화살표 숨김
+        prevEpisodeArrow.style.display = 'none';
+        nextEpisodeArrow.style.display = 'none';
+    }
+  }
+
+  function goHome() { 
+      show("home"); 
+  }
+
+  function openSearch() {
+    show("search");
+    document.getElementById("searchInput").value = "";
+    performSearch();
+  }
+
+  function performSearch() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    const result = document.getElementById("searchResults");
+    result.innerHTML = "";
+    blogTitles.forEach((t, i) => {
+      if (t.toLowerCase().includes(q)) {
+        const el = document.createElement("div");
+        el.className = "blog-card";
+        el.textContent = t;
+        el.onclick = () => openReader(i);
+        result.appendChild(el);
+      }
+    });
+  }
+
+  function openReader(index) {
+    currentBlog = index;
+    currentEpisode = lastReadEpisode[currentBlog] !== undefined ? lastReadEpisode[currentBlog] : 0;
+    
+    renderEpisode();
+    show("reader");
+    document.getElementById("readerTitle").textContent = blogTitles[index];
+    updateEpisodeButtons();
+    updateNavigationArrows();
+
+  }
+
+  function renderEpisode() {
+    const text = blogs[currentBlog][currentEpisode];
+    document.getElementById("episodeContent").innerHTML = `<h3>${currentEpisode + 1}화</h3><div>${text}</div>`;
+    markViewed(currentBlog, currentEpisode);
+    updateLastReadEpisode(currentBlog, currentEpisode);
+    updateNavigationArrows();
+
+window.scrollTo(0, 0);  
+
+  }
+
+  function nextEpisode() {
+    if (currentEpisode < blogs[currentBlog].length - 1) {
+      currentEpisode++;
+      renderEpisode();
+      updateEpisodeButtons();
+    }
+  }
+
+  function prevEpisode() {
+    if (currentEpisode > 0) {
+      currentEpisode--;
+      renderEpisode();
+      updateEpisodeButtons();
+    }
+  }
+
+  function updateNavigationArrows() {
+      prevEpisodeArrow.style.display = (currentEpisode > 0) ? 'block' : 'none';
+      nextEpisodeArrow.style.display = (currentEpisode < blogs[currentBlog].length - 1) ? 'block' : 'none';
+  }
+
+  function updateEpisodeButtons() {
+    const list = document.getElementById("episodeList");
+    list.innerHTML = "";
+    blogs[currentBlog].forEach((_, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = i + 1;
+      if (i === currentEpisode) btn.className = "current";
+      else if ((viewed[currentBlog] || new Set()).has(i)) btn.className = "viewed";
+      else btn.className = "unviewed";
+      btn.onclick = () => {
+        currentEpisode = i;
+        renderEpisode();
+        updateEpisodeButtons();
+        list.style.display = "none";
+      };
+      list.appendChild(btn);
+    });
+  }
+
+  function toggleEpisodeList() {
+  const el = document.getElementById("episodeList");
+
+  // 설정 패널 닫기 먼저
+  hideAllSettings();
+
+  if (el.style.display === "block") {
+    el.style.display = "none";
+  } else {
+    updateEpisodeButtons(); // 회차 버튼이 보이도록 매번 생성
+    el.style.display = "block";
+  }
+}
+
+  function setFontSize(val) {
+    document.getElementById("fontSlider").value = val;
+    document.getElementById("fontInput").value = val;
+    document.getElementById("episodeContent").style.fontSize = val + "px";
+  }
+
+function toggleSettings(context) {
+  const target = context + 'Settings';
+  const panel = document.getElementById(target);
+
+  // 현재 열려있는 패널이 있다면 닫기
+  ['homeSettings', 'readerSettings', 'episodeList'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.id !== target && el.style.display === 'block') {
+          el.style.display = 'none';
+      }
+  });
+
+  // 버튼 위치 바로 아래로 설정창 위치 맞추기
+  const button = document.querySelector(`button[onclick="toggleSettings('${context}')"]`);
+  if (button) {
+    const rect = button.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    panel.style.position = 'absolute';
+    panel.style.left = rect.left + 'px';
+    panel.style.top = rect.bottom + scrollTop + 'px';
+  }
+
+  // 설정창 토글
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+  function hideAllSettings() {
+    document.getElementById('homeSettings').style.display = 'none';
+    document.getElementById('readerSettings').style.display = 'none';
+    document.getElementById('episodeList').style.display = 'none'; // 회차 선택 패널도 닫기
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark-mode");
+  }
+
+  function markViewed(b, e) {
+    if (!viewed[b]) viewed[b] = new Set();
+    viewed[b].add(e);
+    saveViewedToLocalStorage();
+    
+    const historyKey = 'history';
+    const savedBlogsInHistory = JSON.parse(localStorage.getItem(historyKey) || '[]');
+    if (!savedBlogsInHistory.includes(b)) {
+        savedBlogsInHistory.push(b);
+        localStorage.setItem(historyKey, JSON.stringify(savedBlogsInHistory));
+    }
+  }
+
+  function updateLastReadEpisode(blogIndex, episodeIndex) {
+      lastReadEpisode[blogIndex] = episodeIndex;
+      saveLastReadEpisodeToLocalStorage();
+  }
+
+  function openHistory() {
+    show("history");
+    const list = document.getElementById("historyList");
+    list.innerHTML = "";
+    const saved = JSON.parse(localStorage.getItem("history") || "[]");
+    saved.forEach(i => {
+      const el = document.createElement("div");
+      el.className = "blog-card";
+      el.textContent = blogTitles[i];
+      el.onclick = () => openReader(i);
+      list.appendChild(el);
+    });
+  }
+
+  function clearHistory() {
+      if (confirm("모든 히스토리 기록을 삭제하시겠습니까?")) {
+          localStorage.removeItem('history');
+          localStorage.removeItem('viewed');
+          localStorage.removeItem('lastReadEpisode');
+
+          viewed = {};
+          lastReadEpisode = {};
+
+          openHistory();
+          alert("히스토리 기록이 초기화되었습니다.");
+      }
+  }
+
+  function renderHomeLists() {
+    const blogList = document.getElementById("blogList");
+    const recommendList = document.getElementById("recommendList");
+    blogList.innerHTML = "";
+    recommendList.innerHTML = "";
+
+    blogTitles.forEach((t, i) => {
+      const el = document.createElement("div");
+      el.className = "blog-card";
+      el.textContent = t;
+      el.onclick = () => openReader(i);
+      blogList.appendChild(el);
+    });
+
+    const shuffled = [...blogTitles.keys()].sort(() => 0.5 - Math.random()).slice(0, 6);
+    shuffled.forEach(i => {
+      const el = document.createElement("div");
+      el.className = "blog-card";
+      el.textContent = blogTitles[i];
+      el.onclick = () => openReader(i);
+      recommendList.appendChild(el);
+    });
+  }
+
+  // DOMContentLoaded 사용: HTML이 완전히 로드된 후 스크립트 실행
+  // window.onload 대신 사용하면 더 빠르게 로딩될 수 있습니다.
+  document.addEventListener('DOMContentLoaded', () => {
+      loadDataFromLocalStorage();
+      renderHomeLists();
+      // 초기에는 homeView만 보이고 다른 뷰들은 숨겨져 있어야 함
+      // 이전에 display:none으로 설정되어 있으므로, homeView만 'block'으로 명시
+      document.getElementById('homeView').style.display = 'block';
+      document.getElementById('searchView').style.display = 'none';
+      document.getElementById('readerView').style.display = 'none';
+      document.getElementById('historyView').style.display = 'none';
+
+      // 초기 로드 시 화살표는 숨겨져 있어야 함
+      prevEpisodeArrow.style.display = 'none';
+      nextEpisodeArrow.style.display = 'none';
+  });
+</script>
+</body>
+</html>
