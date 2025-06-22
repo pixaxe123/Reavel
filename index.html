@@ -1,8 +1,6 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<html lang="ko"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>REAVEL</title>
   <style>
     body {
@@ -141,7 +139,7 @@
 </head>
 <body>
 
-<div id="homeView">
+<div id="homeView" style="display: block;">
   <div class="top-bar">
     <div class="header-group">
       <h2>REAVEL</h2>
@@ -149,6 +147,7 @@
         <button class="button" onclick="toggleSettings('home')">설정</button>
         <button class="button" onclick="openHistory()">히스토리</button>
         <button class="button" onclick="openSearch()">검색</button>
+<button class="button" onclick="openLiked()">❤️ 좋아요</button>
       </div>
     </div>
   </div>
@@ -157,10 +156,10 @@
   </div>
 
   <h3 style="text-align:center;">이건 어떠세요?</h3>
-  <div class="recommend-list" id="recommendList"></div>
+  <div class="recommend-list" id="recommendList"><div class="blog-card">기사인데 거지입니다만?</div><div class="blog-card">82세 김춘배 마탑주가 되다</div><div class="blog-card">사람이 되고파</div></div>
 
   <h3 style="text-align:center;">모두 다 모았어요!</h3>
-  <div class="blog-list" id="blogList"></div>
+  <div class="blog-list" id="blogList"><div class="blog-card">기사인데 거지입니다만?</div><div class="blog-card">82세 김춘배 마탑주가 되다</div><div class="blog-card">사람이 되고파</div></div>
 </div>
 
 <div id="searchView" style="display:none;">
@@ -179,6 +178,7 @@
         <button class="button" onclick="toggleSettings('reader')">설정</button>
         <button class="button" onclick="toggleEpisodeList()"> 회차 선택</button>
         <button class="button" onclick="goHome()">← 홈</button>
+<button id="likeButton" class="button" onclick="toggleLike()">🤍</button>
       </div>
     </div>
   </div>
@@ -188,8 +188,8 @@
     <input type="number" min="12" max="36" value="16" id="fontInput" oninput="setFontSize(this.value)">
   </div>
   <div id="episodeList" class="episode-buttons" style="padding:1rem; display:none;"></div>
-  <div class="arrow left-arrow" id="prevEpisodeArrow" onclick="prevEpisode()">←</div>
-  <div class="arrow right-arrow" id="nextEpisodeArrow" onclick="nextEpisode()">→</div>
+  <div class="arrow left-arrow" id="prevEpisodeArrow" onclick="prevEpisode()" style="display: none;">←</div>
+  <div class="arrow right-arrow" id="nextEpisodeArrow" onclick="nextEpisode()" style="display: none;">→</div>
   <div id="episodeContent" class="episode-text" style="font-size:16px;"></div>
 </div>
 
@@ -205,7 +205,14 @@
   </div>
 </div>
 
- 
+ <div id="likedView" style="display:none;">
+  <div class="top-bar">
+    <button class="button" onclick="goHome()">← 홈</button>
+    <h2>❤️ 좋아요</h2>
+    <div></div>
+  </div>
+  <div class="blog-list" id="likedList"></div>
+</div>
  
  
 
@@ -415,11 +422,12 @@
   let lastReadEpisode = {};
 
   const views = {
-    home: document.getElementById("homeView"),
-    search: document.getElementById("searchView"),
-    reader: document.getElementById("readerView"),
-    history: document.getElementById("historyView")
-  };
+  home: document.getElementById("homeView"),
+  search: document.getElementById("searchView"),
+  reader: document.getElementById("readerView"),
+  history: document.getElementById("historyView"),
+  liked: document.getElementById("likedView") 
+};
 
   const prevEpisodeArrow = document.getElementById("prevEpisodeArrow");
   const nextEpisodeArrow = document.getElementById("nextEpisodeArrow");
@@ -502,6 +510,9 @@
     renderEpisode();
     show("reader");
     document.getElementById("readerTitle").textContent = blogTitles[index];
+
+updateLikeButton(); 
+
     updateEpisodeButtons();
     updateNavigationArrows();
 
@@ -688,6 +699,7 @@ function toggleSettings(context) {
   // window.onload 대신 사용하면 더 빠르게 로딩될 수 있습니다.
   document.addEventListener('DOMContentLoaded', () => {
       loadDataFromLocalStorage();
+loadLikesFromLocalStorage();
       renderHomeLists();
       // 초기에는 homeView만 보이고 다른 뷰들은 숨겨져 있어야 함
       // 이전에 display:none으로 설정되어 있으므로, homeView만 'block'으로 명시
@@ -700,6 +712,76 @@ function toggleSettings(context) {
       prevEpisodeArrow.style.display = 'none';
       nextEpisodeArrow.style.display = 'none';
   });
+
+let likedBlogs = [];
+
+function loadLikesFromLocalStorage() {
+  const saved = localStorage.getItem("likedBlogs");
+  if (saved) likedBlogs = JSON.parse(saved);
+}
+
+function saveLikesToLocalStorage() {
+  localStorage.setItem("likedBlogs", JSON.stringify(likedBlogs));
+}
+
+function isLiked(index) {
+  return likedBlogs.includes(index);
+}
+
+function toggleLike() {
+  if (isLiked(currentBlog)) {
+    likedBlogs = likedBlogs.filter(i => i !== currentBlog);
+  } else {
+    likedBlogs.push(currentBlog);
+  }
+  saveLikesToLocalStorage();
+  updateLikeButton();
+}
+
+function updateLikeButton() {
+  const btn = document.getElementById("likeButton");
+  if (!btn) return;
+  btn.textContent = isLiked(currentBlog) ? "❤️" : "🤍";
+}
+
+function showLiked() {
+  show("home");
+  const blogList = document.getElementById("blogList");
+  blogList.innerHTML = "";
+
+  likedBlogs.forEach(i => {
+    const el = document.createElement("div");
+    el.className = "blog-card";
+    el.textContent = blogTitles[i];
+    el.onclick = () => openReader(i);
+    blogList.appendChild(el);
+  });
+}
+
+function openLiked() {
+  show("liked");
+
+  const list = document.getElementById("likedList");
+  list.innerHTML = "";
+
+  if (likedBlogs.length === 0) {
+    const msg = document.createElement("p");
+    msg.textContent = "좋아요한 블로그가 없습니다.";
+    msg.style.textAlign = "center";
+    list.appendChild(msg);
+    return;
+  }
+
+  likedBlogs.forEach(i => {
+    const el = document.createElement("div");
+    el.className = "blog-card";
+    el.textContent = blogTitles[i];
+    el.onclick = () => openReader(i);
+    list.appendChild(el);
+  });
+}
+
 </script>
-</body>
-</html>
+
+
+</body></html>
